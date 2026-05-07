@@ -127,8 +127,8 @@ def _parse_available_values(lines: List[str]) -> List[str]:
     values: List[str] = []
 
     for line in lines:
-        # Match any "Available <x>:" header line
-        if re.match(r"Available (?:values|segments|options):", line, re.IGNORECASE):
+        # Match any "Available <word(s)>:" header line (values, segments, options, actions, etc.)
+        if re.match(r"Available \w[\w\s]*:", line, re.IGNORECASE):
             right = line.split(":", 1)[1].strip()
             if right:
                 # Inline slash-separated: "Available values: a / b / c"
