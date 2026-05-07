@@ -519,48 +519,54 @@ def main() -> None:
             with st.expander("📖 Explanation", expanded=True):
                 st.info(q["explanation"])
 
-    left, right = st.columns(2)
+    # Check if a session is already active
+    active_session_id = st.session_state.get("active_session_id")
+    
+    if not active_session_id:
+        # Show two-column layout for session creation/selection
+        left, right = st.columns(2)
 
-    with left:
-        st.markdown("### Start New Session")
-        name = st.text_input("Session name", value="My DP-700 Session")
-        check_mode = st.selectbox(
-            "Check mode",
-            ["submit", "immediate"],
-            format_func=lambda x: "Check on Submit" if x == "submit" else "Immediate per question",
-        )
-        retry_mode = st.selectbox(
-            "Retry mode",
-            ["auto", "manual"],
-            format_func=lambda x: "Automatic failed-only rounds" if x == "auto" else "Manual failed-only rounds",
-        )
+        with left:
+            st.markdown("### Start New Session")
+            name = st.text_input("Session name", value="My DP-700 Session")
+            check_mode = st.selectbox(
+                "Check mode",
+                ["submit", "immediate"],
+                format_func=lambda x: "Check on Submit" if x == "submit" else "Immediate per question",
+            )
+            retry_mode = st.selectbox(
+                "Retry mode",
+                ["auto", "manual"],
+                format_func=lambda x: "Automatic failed-only rounds" if x == "auto" else "Manual failed-only rounds",
+            )
 
-        if st.button("Create session", type="primary", use_container_width=True):
-            session_id = db.create_session(name=name, source_docx=docx_path, check_mode=check_mode, retry_mode=retry_mode)
-            all_qcodes = [q["qcode"] for q in db.get_questions()]
-            db.create_round(session_id=session_id, round_number=1, qcodes=all_qcodes)
-            st.session_state["active_session_id"] = session_id
-            st.success(f"Created session #{session_id} with {len(all_qcodes)} questions.")
+            if st.button("Create session", type="primary", use_container_width=True):
+                session_id = db.create_session(name=name, source_docx=docx_path, check_mode=check_mode, retry_mode=retry_mode)
+                all_qcodes = [q["qcode"] for q in db.get_questions()]
+                db.create_round(session_id=session_id, round_number=1, qcodes=all_qcodes)
+                st.session_state["active_session_id"] = session_id
+                st.success(f"Created session #{session_id} with {len(all_qcodes)} questions.")
+                st.rerun()
 
-        st.markdown("### Continue Session")
-        if in_progress_sessions:
-            ids = [s["id"] for s in in_progress_sessions]
-            labels = {
-                s["id"]: f"#{s['id']} - {s['name']} (Round {s['current_round']})"
-                for s in in_progress_sessions
-            }
-            chosen = st.selectbox("Choose session", options=ids, format_func=lambda x: labels[x])
-            if st.button("Open selected session", use_container_width=True):
-                st.session_state["active_session_id"] = chosen
-        else:
-            st.info("No active sessions found. Create a new one.")
+            st.markdown("### Continue Session")
+            if in_progress_sessions:
+                ids = [s["id"] for s in in_progress_sessions]
+                labels = {
+                    s["id"]: f"#{s['id']} - {s['name']} (Round {s['current_round']})"
+                    for s in in_progress_sessions
+                }
+                chosen = st.selectbox("Choose session", options=ids, format_func=lambda x: labels[x])
+                if st.button("Open selected session", use_container_width=True):
+                    st.session_state["active_session_id"] = chosen
+                    st.rerun()
+            else:
+                st.info("No active sessions found. Create a new one.")
 
-    with right:
-        active_session_id = st.session_state.get("active_session_id")
-        if not active_session_id:
+        with right:
             st.info("Create or open a session to begin.")
-            return
 
+    else:
+        # Show full-width practice UI for active session
         session = db.get_session(int(active_session_id))
         if not session:
             st.warning("Selected session no longer exists.")
