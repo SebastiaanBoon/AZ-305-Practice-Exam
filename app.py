@@ -114,10 +114,12 @@ def render_answer_editor(question: Dict[str, Any], existing_answer: Dict[str, An
         item_answers = payload.get("item_answers", {})
         st.markdown("**Answer each statement (Yes/No):**")
         for idx, statement in enumerate(statements, start=1):
-            label = statement
+            # Strip "YES / NO" suffix from statement to match correct_answer labels
+            label = statement.replace(" YES / NO", "").strip()
+            display_text = statement  # Show full text in UI
             default_val = item_answers.get(label, "")
             chosen = st.radio(
-                label,
+                display_text,
                 options=["", "Yes", "No"],
                 index=_safe_index(["", "Yes", "No"], default_val),
                 horizontal=True,
