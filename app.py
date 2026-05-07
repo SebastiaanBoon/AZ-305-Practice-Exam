@@ -518,6 +518,10 @@ def main() -> None:
         if q.get("explanation"):
             with st.expander("📖 Explanation", expanded=True):
                 st.info(q["explanation"])
+
+    left, right = st.columns(2)
+
+    with left:
         st.markdown("### Start New Session")
         name = st.text_input("Session name", value="My DP-700 Session")
         check_mode = st.selectbox(
@@ -638,7 +642,7 @@ def main() -> None:
 
         # === ACTION BUTTONS ===
         st.divider()
-        col_actions = st.columns(4)
+        col_actions = st.columns(5)
         with col_actions[0]:
             if st.button("✓ Save answer", type="primary", use_container_width=True):
                 if session["check_mode"] == "immediate":
@@ -704,25 +708,15 @@ def main() -> None:
                 with st.expander("📖 Explanation", expanded=True):
                     st.info(q["explanation"])
 
-        st.divider()
-        if st.button("Submit Round", type="primary"):
-            correct_count, total, failed_qcodes = submit_and_check_round(
-                db,
-                session,
-                round_row,
-                round_questions,
-            )
-            st.success(f"Round submitted. Score: {correct_count}/{total}")
-            if failed_qcodes:
-                st.warning(f"Failed questions: {', '.join(failed_qcodes)}")
-                if session["retry_mode"] == "auto":
-                    st.info("Auto retry mode created the next failed-only round.")
-                else:
-                    st.info("Manual retry mode: click 'Start failed-only retry round' when ready.")
-            else:
-                st.balloons()
-                st.success("Perfect score. Session completed.")
-            st.rerun()
+        with col_actions[4]:
+            if st.button("📤 Submit Round", type="primary", use_container_width=True):
+                correct_count, total, failed_qcodes = submit_and_check_round(
+                    db,
+                    session,
+                    round_row,
+                    round_questions,
+                )
+                st.rerun()
 
 
 if __name__ == "__main__":
