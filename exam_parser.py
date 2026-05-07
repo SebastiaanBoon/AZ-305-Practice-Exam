@@ -123,11 +123,31 @@ def _parse_dropdown_groups(lines: List[str]) -> Dict[str, List[str]]:
 
 
 def _parse_available_values(lines: List[str]) -> List[str]:
+    in_section = False
+    values: List[str] = []
+
     for line in lines:
-        if line.startswith("Available values:"):
-            right = line.split(":", 1)[1]
-            return [x.strip() for x in right.split("/") if x.strip()]
-    return []
+        # Match any "Available <x>:" header line
+        if re.match(r"Available (?:values|segments|options):", line, re.IGNORECASE):
+            right = line.split(":", 1)[1].strip()
+            if right:
+                # Inline slash-separated: "Available values: a / b / c"
+                return [x.strip() for x in right.split("/") if x.strip()]
+            # Multi-line bullet section follows
+            in_section = True
+            continue
+
+        if in_section:
+            stripped = line.strip()
+            # bullet characters: •, -, \u2022
+            if stripped and stripped[0] in ("\u2022", "\u2023", "-", "*", "\u25e6"):
+                values.append(stripped.lstrip("\u2022\u2023-*\u25e6 ").strip())
+            elif stripped == "":
+                continue
+            else:
+                in_section = False
+
+    return values
 
 
 def _parse_statements(lines: List[str]) -> List[str]:

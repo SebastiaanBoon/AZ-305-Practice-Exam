@@ -92,15 +92,15 @@ def render_answer_editor(question: Dict[str, Any], existing_answer: Dict[str, An
             out.setdefault("item_answers", {})[label] = chosen
 
     # === DRAGDROP / YESNO / FILL-BLANKS (via available_values) ===
-    elif available_values and ("Blank" in question.get("question_text", "") or statements):
+    elif available_values and ("Blank" in question.get("question_text", "") or "Step" in question.get("question_text", "") or statements):
         item_answers = payload.get("item_answers", {})
         
-        # DRAGDROP with blanks
-        if "Blank" in question.get("question_text", ""):
-            st.markdown("**Drag values to fill blanks (or select from dropdown):**")
+        # DRAGDROP with blanks or steps
+        if "Blank" in question.get("question_text", "") or "Step" in question.get("question_text", ""):
+            st.markdown("**Select values to fill each position:**")
             blanks = question.get("correct_answer", {}).get("items", [])
             for idx, item in enumerate(blanks, start=1):
-                label = item.get("label") or f"Blank {idx}"
+                label = item.get("label") or f"Item {idx}"
                 opts = [""] + available_values
                 default_val = item_answers.get(label, "")
                 chosen = st.selectbox(
