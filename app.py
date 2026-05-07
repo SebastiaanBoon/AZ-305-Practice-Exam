@@ -75,7 +75,7 @@ def render_answer_editor(question: Dict[str, Any], existing_answer: Dict[str, An
     out: Dict[str, Any] = {}
 
     # === HOTSPOT / DROPDOWN questions ===
-    if dropdown_groups and not statements:
+    if dropdown_groups:
         st.markdown("**Select an option for each dropdown:**")
         item_answers = payload.get("item_answers", {})
         for idx, (label, choices) in enumerate(dropdown_groups.items(), start=1):
