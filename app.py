@@ -9,7 +9,7 @@ from exam_parser import evaluate_answer, parse_docx_questions
 
 APP_TITLE = "AZ-305 Practice Exam Trainer"
 DEFAULT_DOCX = "AZ305_renumbered.docx"
-QUESTION_BANK_VERSION = "az305-2026-05-08-v4"
+QUESTION_BANK_VERSION = "az305-2026-05-08-v5"
 
 
 def _safe_index(options: List[str], value: str) -> int:
