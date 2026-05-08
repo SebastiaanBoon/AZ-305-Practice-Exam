@@ -216,13 +216,18 @@ def _parse_question_block(block: List[str]) -> Dict[str, Any]:
         statements = _parse_yesno_table_statements(body)
     select_count = _parse_select_count(body)
 
+    # Noise tokens that come from linearised YES/NO tables — never show in display text.
+    _NOISE = {"statement", "yes", "no", "○", "◯", "●"}
+
     question_lines = []
     for line in body:
         if line in {"OPTIONS:", "DROPDOWN OPTIONS:", "EXHIBIT:", "DETAILED ANSWERS", "CORRECT SELECTIONS:", "CORRECT SEQUENCE:"}:
-            question_lines.append(line)
             continue
         if line.startswith("Available values:"):
             question_lines.append(line)
+            continue
+        # Drop bare noise tokens (table headers / radio circle chars).
+        if line.strip().lower() in _NOISE:
             continue
         question_lines.append(line)
 
@@ -460,6 +465,23 @@ def parse_docx_questions(docx_path: str) -> List[Dict[str, Any]]:
 
         if (not q.get("correct_answer")) and qcode in quick_key:
             q["correct_answer"] = _infer_correct_answer_from_quick_key(q, quick_key[qcode])
+
+        # Reconcile: if quick key has more Yes/No values than extracted statements,
+        # pad the statements list with generic numbered labels and fix correct_answer items.
+        if q.get("qtype") == "YES/NO" and qcode in quick_key:
+            yn_vals = re.findall(r"\b(Yes|No)\b", quick_key[qcode], flags=re.IGNORECASE)
+            stmts = q.get("statements", [])
+            if len(yn_vals) > len(stmts):
+                for n in range(len(stmts) + 1, len(yn_vals) + 1):
+                    stmts.append(f"Statement {n}")
+                q["statements"] = stmts
+                # Rebuild correct_answer items to match the now-complete statement list.
+                items = [
+                    {"label": s, "value": yn_vals[i].title()}
+                    for i, s in enumerate(stmts)
+                ]
+                q["correct_answer"] = {"mode": "items", "items": items, "ordered": False}
+
         parsed_questions.append(q)
 
     return parsed_questions

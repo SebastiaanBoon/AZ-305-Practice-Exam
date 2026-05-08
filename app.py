@@ -9,7 +9,7 @@ from exam_parser import evaluate_answer, parse_docx_questions
 
 APP_TITLE = "AZ-305 Practice Exam Trainer"
 DEFAULT_DOCX = "AZ305_renumbered.docx"
-QUESTION_BANK_VERSION = "az305-2026-05-08-v3"
+QUESTION_BANK_VERSION = "az305-2026-05-08-v4"
 
 
 def _safe_index(options: List[str], value: str) -> int:
@@ -58,16 +58,18 @@ def get_status_icon(answer_row: Dict[str, Any]) -> str:
     return "◐"
 
 
+_DISPLAY_NOISE = {"statement", "yes", "no", "○", "◯", "●"}
+
+
 def render_question_display(question: Dict[str, Any]) -> None:
     """Display question text with proper formatting."""
     st.markdown(f"### {question['qcode']} — {question.get('topic', '')}")
-    
+
     qtext = question.get("question_text", "")
-    
-    # Split on code blocks or placeholders for better readability
+
     lines = qtext.split("\n")
     for line in lines:
-        if line.strip():
+        if line.strip() and line.strip().lower() not in _DISPLAY_NOISE:
             if "[Dropdown" in line or "[Blank" in line:
                 st.markdown(f"**{line}**")
             elif line.startswith("SELECT") or line.startswith("WITH") or line.startswith("CREATE") or line.startswith("INSERT"):
