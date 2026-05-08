@@ -1,4 +1,4 @@
-# DP-700 Practice Exam Trainer (Local App)
+# AZ-305 Practice Exam Trainer (Local App)
 
 A local Streamlit app that parses the included DOCX practice exam and provides:
 
@@ -34,7 +34,7 @@ streamlit run app.py
 
 ## How It Works
 
-- On first run, the app reads `dp700_final.docx` and stores parsed questions/answers in SQLite.
+- On first run, the app reads `AZ305_renumbered.docx` and stores parsed questions/answers in SQLite.
 - The SQLite file `exam_app.db` stores:
   - all parsed questions
   - all sessions
@@ -60,7 +60,7 @@ Suggested steps:
 ```bash
 git init
 git add .
-git commit -m "Initial DP-700 exam trainer"
+git commit -m "Initial AZ-305 exam trainer"
 ```
 
 Then create a GitHub repository and push:

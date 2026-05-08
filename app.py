@@ -7,8 +7,9 @@ from db import ExamDB
 from exam_parser import evaluate_answer, parse_docx_questions
 
 
-APP_TITLE = "DP-700 Practice Exam Trainer"
-DEFAULT_DOCX = "dp700_final.docx"
+APP_TITLE = "AZ-305 Practice Exam Trainer"
+DEFAULT_DOCX = "AZ305_renumbered.docx"
+QUESTION_BANK_VERSION = "az305-2026-05-08"
 
 
 def _safe_index(options: List[str], value: str) -> int:
@@ -19,17 +20,23 @@ def _safe_index(options: List[str], value: str) -> int:
 
 
 def load_questions_if_needed(db: ExamDB, docx_path: str) -> Tuple[bool, str]:
-    if db.has_questions():
-        return True, "Questions already loaded from database."
-
     if not os.path.exists(docx_path):
         return False, f"DOCX file not found: {docx_path}"
+
+    loaded_source = db.get_meta("question_source_docx")
+    loaded_version = db.get_meta("question_bank_version")
+    if db.has_questions() and loaded_source == docx_path and loaded_version == QUESTION_BANK_VERSION:
+        return True, "Questions already loaded from database."
 
     questions = parse_docx_questions(docx_path)
     if not questions:
         return False, "No questions parsed from DOCX."
 
+    db.reset_exam_data()
     db.upsert_questions(questions)
+    db.set_meta("question_source_docx", docx_path)
+    db.set_meta("question_count", str(len(questions)))
+    db.set_meta("question_bank_version", QUESTION_BANK_VERSION)
     return True, f"Loaded {len(questions)} questions from {docx_path}."
 
 
@@ -310,7 +317,7 @@ def main() -> None:
     with st.expander("➕ Start New Session", expanded=not st.session_state.get("active_session_id")):
         col_name, col_btn = st.columns([3, 1])
         with col_name:
-            name = st.text_input("Session name", value="My DP-700 Session", key="new_session_name")
+            name = st.text_input("Session name", value="My AZ-305 Session", key="new_session_name")
         with col_btn:
             if st.button("Create", type="primary", use_container_width=True):
                 all_qcodes = [q["qcode"] for q in db.get_questions()]

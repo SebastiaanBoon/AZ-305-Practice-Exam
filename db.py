@@ -86,8 +86,45 @@ class ExamDB:
                     FOREIGN KEY (round_id) REFERENCES rounds(id),
                     FOREIGN KEY (qcode) REFERENCES questions(qcode)
                 );
+
+                CREATE TABLE IF NOT EXISTS app_meta (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
                 """
             )
+
+    def get_meta(self, key: str) -> Optional[str]:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT value FROM app_meta WHERE key = ?",
+                (key,),
+            ).fetchone()
+            return row["value"] if row else None
+
+    def set_meta(self, key: str, value: str) -> None:
+        now = utc_now()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO app_meta (key, value, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = excluded.updated_at
+                """,
+                (key, value, now),
+            )
+
+    def reset_exam_data(self) -> None:
+        """Clear sessions, rounds, answers, and questions for a full exam source switch."""
+        with self._connect() as conn:
+            conn.execute("DELETE FROM answers")
+            conn.execute("DELETE FROM round_questions")
+            conn.execute("DELETE FROM rounds")
+            conn.execute("DELETE FROM sessions")
+            conn.execute("DELETE FROM questions")
 
     def has_questions(self) -> bool:
         with self._connect() as conn:

@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 from docx import Document
 
 
-Q_HEADER_RE = re.compile(r"^(Q\d{2})\b")
+Q_HEADER_RE = re.compile(r"^(Q\d{2,3})\b")
 
 
 def _clean(text: str) -> str:
@@ -307,8 +307,12 @@ def parse_docx_questions(docx_path: str) -> List[Dict[str, Any]]:
     detailed_blocks = _split_q_blocks(detailed_lines)
 
     parsed_questions: List[Dict[str, Any]] = []
-    for qcode in sorted(question_blocks.keys()):
-        q = _parse_question_block(question_blocks[qcode])
+    all_qcodes = sorted(set(question_blocks.keys()) | set(detailed_blocks.keys()))
+    for qcode in all_qcodes:
+        source_block = question_blocks.get(qcode) or detailed_blocks.get(qcode) or []
+        if not source_block:
+            continue
+        q = _parse_question_block(source_block)
         if qcode in detailed_blocks:
             d = _parse_detailed_answer_block(detailed_blocks[qcode])
             q["qtype"] = d.get("qtype", "UNKNOWN")
