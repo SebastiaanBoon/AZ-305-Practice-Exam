@@ -160,11 +160,23 @@ def _parse_statements(lines: List[str]) -> List[str]:
 
 def _parse_yesno_table_statements(lines: List[str]) -> List[str]:
     """Extract YES/NO statements from table-style exports (non-numbered rows)."""
+    # Try trigger: "for each statement" header
     start_idx = -1
     for i, line in enumerate(lines):
         if "for each statement" in line.lower():
             start_idx = i
             break
+
+    # Fallback trigger: consecutive Statement / Yes / No table header tokens
+    if start_idx < 0:
+        for i, line in enumerate(lines):
+            if line.strip().lower() == "statement":
+                # Check if followed by Yes and No tokens
+                rest = [l.strip().lower() for l in lines[i+1:i+3]]
+                if rest == ["yes", "no"]:
+                    start_idx = i
+                    break
+
     if start_idx < 0:
         return []
 
