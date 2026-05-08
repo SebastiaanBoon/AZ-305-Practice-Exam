@@ -290,6 +290,97 @@ def _parse_detailed_answer_block(block: List[str]) -> Dict[str, Any]:
     return out
 
 
+def _parse_quick_answer_key(lines: List[str]) -> Dict[str, str]:
+    key_map: Dict[str, str] = {}
+    for line in lines:
+        m = re.match(r"^(Q\d{2,3}):\s*(.+?)\s+[\u2013\u2014-]\s+Topic\s+\d+\s*$", line)
+        if not m:
+            continue
+        qcode = m.group(1)
+        value = m.group(2).strip()
+        key_map[qcode] = value
+    return key_map
+
+
+def _infer_correct_answer_from_quick_key(question: Dict[str, Any], raw_value: str) -> Dict[str, Any]:
+    raw = (raw_value or "").strip()
+    if not raw:
+        return {}
+
+    # YES/NO statements
+    statements = question.get("statements") or []
+    if statements:
+        yn_values = re.findall(r"\b(Yes|No)\b", raw, flags=re.IGNORECASE)
+        if yn_values:
+            items = []
+            for i, statement in enumerate(statements):
+                label = statement.replace(" YES / NO", "").strip()
+                if i < len(yn_values):
+                    items.append({"label": label, "value": yn_values[i].title()})
+            if items:
+                return {
+                    "mode": "items",
+                    "items": items,
+                    "ordered": False,
+                }
+
+    # Dropdown/hotspot answers separated by pipes map to dropdown labels in order.
+    dropdown_groups = question.get("dropdown_groups") or {}
+    if dropdown_groups:
+        parts = [p.strip() for p in raw.split("|") if p.strip()]
+        labels = list(dropdown_groups.keys())
+        items = []
+        for i, label in enumerate(labels):
+            value = parts[i] if i < len(parts) else ""
+            items.append({"label": label, "value": value})
+        if items:
+            return {
+                "mode": "items",
+                "items": items,
+                "ordered": False,
+            }
+
+    # Option questions (single or multi)
+    options = question.get("options") or []
+    if options:
+        text_to_key = {_normalize(o.get("text", "")): o.get("key", "") for o in options}
+        norm_raw = _normalize(raw)
+        if norm_raw in text_to_key and text_to_key[norm_raw]:
+            return {
+                "mode": "answer",
+                "value": text_to_key[norm_raw],
+            }
+
+        if re.fullmatch(r"[A-Z]", raw):
+            return {
+                "mode": "answer",
+                "value": raw,
+            }
+        if re.fullmatch(r"[A-Z](\s*,\s*[A-Z])+", raw):
+            letters = [x.strip() for x in raw.split(",") if x.strip()]
+            return {
+                "mode": "answer",
+                "value": "".join(letters),
+            }
+
+    # Generic pipe-separated items fallback.
+    if "|" in raw:
+        parts = [p.strip() for p in raw.split("|") if p.strip()]
+        items = [{"label": f"Item {i + 1}", "value": p} for i, p in enumerate(parts)]
+        if items:
+            return {
+                "mode": "items",
+                "items": items,
+                "ordered": False,
+            }
+
+    # Last fallback: keep as answer text.
+    return {
+        "mode": "answer",
+        "value": raw,
+    }
+
+
 def parse_docx_questions(docx_path: str) -> List[Dict[str, Any]]:
     lines = _paragraphs(docx_path)
 
@@ -301,10 +392,12 @@ def parse_docx_questions(docx_path: str) -> List[Dict[str, Any]]:
         raise ValueError("Could not find PART 1/PART 2/DETAILED ANSWERS markers in DOCX.")
 
     q_lines = lines[part1_idx + 1 : part2_idx]
+    quick_key_lines = lines[part2_idx + 1 : detailed_idx]
     detailed_lines = lines[detailed_idx + 1 :]
 
     question_blocks = _split_q_blocks(q_lines)
     detailed_blocks = _split_q_blocks(detailed_lines)
+    quick_key = _parse_quick_answer_key(quick_key_lines)
 
     parsed_questions: List[Dict[str, Any]] = []
     all_qcodes = sorted(set(question_blocks.keys()) | set(detailed_blocks.keys()))
@@ -318,6 +411,9 @@ def parse_docx_questions(docx_path: str) -> List[Dict[str, Any]]:
             q["qtype"] = d.get("qtype", "UNKNOWN")
             q["correct_answer"] = d.get("correct_answer", {})
             q["explanation"] = d.get("explanation", "")
+
+        if (not q.get("correct_answer")) and qcode in quick_key:
+            q["correct_answer"] = _infer_correct_answer_from_quick_key(q, quick_key[qcode])
         parsed_questions.append(q)
 
     return parsed_questions
@@ -326,6 +422,12 @@ def parse_docx_questions(docx_path: str) -> List[Dict[str, Any]]:
 def evaluate_answer(question: Dict[str, Any], user_answer: Dict[str, Any]) -> Dict[str, Any]:
     correct = question.get("correct_answer", {}) or {}
     mode = correct.get("mode")
+
+    if not correct or not mode:
+        return {
+            "is_correct": False,
+            "feedback": "No answer key is available for this question yet.",
+        }
 
     if not user_answer:
         return {

@@ -9,7 +9,7 @@ from exam_parser import evaluate_answer, parse_docx_questions
 
 APP_TITLE = "AZ-305 Practice Exam Trainer"
 DEFAULT_DOCX = "AZ305_renumbered.docx"
-QUESTION_BANK_VERSION = "az305-2026-05-08"
+QUESTION_BANK_VERSION = "az305-2026-05-08-v2"
 
 
 def _safe_index(options: List[str], value: str) -> int:
@@ -32,11 +32,17 @@ def load_questions_if_needed(db: ExamDB, docx_path: str) -> Tuple[bool, str]:
     if not questions:
         return False, "No questions parsed from DOCX."
 
-    db.reset_exam_data()
+    source_changed = bool(db.has_questions() and loaded_source and loaded_source != docx_path)
+    if source_changed:
+        # Full source switch (for example DP-700 -> AZ-305): clear prior sessions/questions.
+        db.reset_exam_data()
+
     db.upsert_questions(questions)
     db.set_meta("question_source_docx", docx_path)
     db.set_meta("question_count", str(len(questions)))
     db.set_meta("question_bank_version", QUESTION_BANK_VERSION)
+    if source_changed:
+        return True, f"Loaded {len(questions)} questions from {docx_path} after source switch."
     return True, f"Loaded {len(questions)} questions from {docx_path}."
 
 
