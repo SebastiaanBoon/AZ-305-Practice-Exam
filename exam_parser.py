@@ -158,6 +158,37 @@ def _parse_statements(lines: List[str]) -> List[str]:
     return out
 
 
+def _parse_yesno_table_statements(lines: List[str]) -> List[str]:
+    """Extract YES/NO statements from table-style exports (non-numbered rows)."""
+    start_idx = -1
+    for i, line in enumerate(lines):
+        if "for each statement" in line.lower():
+            start_idx = i
+            break
+    if start_idx < 0:
+        return []
+
+    out: List[str] = []
+    for line in lines[start_idx + 1 :]:
+        t = line.strip()
+        if not t:
+            continue
+        # Stop at obvious section boundaries.
+        if t in {"OPTIONS:", "DROPDOWN OPTIONS:", "EXHIBIT:", "DETAILED ANSWERS"}:
+            break
+        if Q_HEADER_RE.match(t):
+            break
+        # Skip table header/noise tokens.
+        if t.lower() in {"statement", "yes", "no"}:
+            continue
+        if t in {"○", "◯", "●"}:
+            continue
+        # Keep substantial statement lines.
+        if len(t.split()) >= 5:
+            out.append(t)
+    return out
+
+
 def _parse_select_count(lines: List[str]) -> int:
     for line in lines:
         m = re.search(r"select\s+(\d+)", line, flags=re.IGNORECASE)
@@ -181,6 +212,8 @@ def _parse_question_block(block: List[str]) -> Dict[str, Any]:
     dropdown_groups = _parse_dropdown_groups(body)
     available_values = _parse_available_values(body)
     statements = _parse_statements(body)
+    if not statements:
+        statements = _parse_yesno_table_statements(body)
     select_count = _parse_select_count(body)
 
     question_lines = []
@@ -323,6 +356,19 @@ def _infer_correct_answer_from_quick_key(question: Dict[str, Any], raw_value: st
                     "items": items,
                     "ordered": False,
                 }
+
+    # YES/NO without parsed statements yet: create generic statement labels.
+    yn_values = re.findall(r"\b(Yes|No)\b", raw, flags=re.IGNORECASE)
+    if yn_values:
+        items = [
+            {"label": f"Statement {i + 1}", "value": val.title()}
+            for i, val in enumerate(yn_values)
+        ]
+        return {
+            "mode": "items",
+            "items": items,
+            "ordered": False,
+        }
 
     # Dropdown/hotspot answers separated by pipes map to dropdown labels in order.
     dropdown_groups = question.get("dropdown_groups") or {}
