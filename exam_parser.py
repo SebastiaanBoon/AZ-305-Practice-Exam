@@ -466,21 +466,28 @@ def parse_docx_questions(docx_path: str) -> List[Dict[str, Any]]:
         if (not q.get("correct_answer")) and qcode in quick_key:
             q["correct_answer"] = _infer_correct_answer_from_quick_key(q, quick_key[qcode])
 
-        # Reconcile: if quick key has more Yes/No values than extracted statements,
-        # pad the statements list with generic numbered labels and fix correct_answer items.
+        # Reconcile YES/NO statement list against the quick answer key.
+        # Questions whose statements live inside an exhibit image are hardcoded here in full.
+        # When a qcode is present, its full statement list replaces whatever was parsed.
+        _EXHIBIT_STATEMENTS: Dict[str, List[str]] = {
+            "Q015": [
+                "The design supports the technical requirements for redundancy (redundant if an Azure region fails).",
+                "The design supports autoscaling.",
+                "The design requires a manual configuration if an Azure region fails.",
+            ],
+        }
         if q.get("qtype") == "YES/NO" and qcode in quick_key:
             yn_vals = re.findall(r"\b(Yes|No)\b", quick_key[qcode], flags=re.IGNORECASE)
-            stmts = q.get("statements", [])
-            if len(yn_vals) > len(stmts):
-                for n in range(len(stmts) + 1, len(yn_vals) + 1):
-                    stmts.append(f"Statement {n}")
-                q["statements"] = stmts
-                # Rebuild correct_answer items to match the now-complete statement list.
-                items = [
-                    {"label": s, "value": yn_vals[i].title()}
-                    for i, s in enumerate(stmts)
-                ]
-                q["correct_answer"] = {"mode": "items", "items": items, "ordered": False}
+            stmts = _EXHIBIT_STATEMENTS[qcode] if qcode in _EXHIBIT_STATEMENTS else q.get("statements", [])
+            if len(stmts) != len(yn_vals):
+                # Trim to however many values we have answer keys for
+                stmts = stmts[:len(yn_vals)]
+            q["statements"] = stmts
+            items = [
+                {"label": s, "value": yn_vals[i].title()}
+                for i, s in enumerate(stmts)
+            ]
+            q["correct_answer"] = {"mode": "items", "items": items, "ordered": False}
 
         parsed_questions.append(q)
 
